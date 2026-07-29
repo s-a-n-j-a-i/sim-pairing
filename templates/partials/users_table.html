@@ -26,7 +26,7 @@
           </td>
           <td>
             <div class="d-flex align-items-center gap-2">
-              <form hx-post="/admin/users/password/{{ u.id }}" hx-swap="none" class="d-flex align-items-center gap-1" onsubmit="this.reset();">
+              <form hx-post="/admin/users/password/{{ u.id }}" hx-swap="none" hx-on::after-request="if(event.detail.successful) this.reset()" class="d-flex align-items-center gap-1">
                 <input type="password" name="new_password" class="form-control form-control-sm" style="width: 130px;" placeholder="New password" required autocomplete="new-password">
                 <button type="submit" class="btn btn-sm btn-outline-primary" title="Update Password">
                   <i class="ti ti-key"></i>

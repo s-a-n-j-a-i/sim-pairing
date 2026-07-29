@@ -20,7 +20,7 @@
         <h3 class="card-title"><i class="ti ti-user-plus me-1 text-primary"></i> Create User</h3>
       </div>
       <div class="card-body">
-        <form hx-post="/admin/users/create" hx-target="#users-table-container" hx-swap="outerHTML" onsubmit="this.reset()">
+        <form hx-post="/admin/users/create" hx-target="#users-table-container" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
           <div class="mb-3">
             <label class="form-label" for="new-username">Username</label>
             <input type="text" class="form-control" id="new-username" name="username" placeholder="e.g. jdoe" required autocomplete="off">

@@ -1,0 +1,44 @@
+<div class="table-responsive" style="min-height: 200px;">
+  <table class="table table-vcenter card-table table-hover">
+    <thead>
+      <tr>
+        <th>Unit ID</th>
+        <th>SIM Card MSISDN</th>
+        <th>SIM Card ICCID</th>
+        <th>Provider</th>
+        <th>Paired By</th>
+        <th>Paired At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for pairing in pairings %}
+      <tr>
+        <td>
+          <span class="font-weight-semibold text-dark">{{ pairing.unit_id }}</span>
+        </td>
+        <td>{{ pairing.sim_card.msisdn }}</td>
+        <td class="font-monospace text-muted small">{{ pairing.sim_card.iccid }}</td>
+        <td>
+          <span class="badge bg-blue-lt">{{ pairing.sim_card.provider }}</span>
+        </td>
+        <td>
+          <div class="d-flex align-items-center">
+            <span class="avatar avatar-xs me-2 bg-blue-lt"><i class="ti ti-user"></i></span>
+            <span>{{ pairing.paired_by.username }}</span>
+          </div>
+        </td>
+        <td class="small text-muted" title="{{ pairing.paired_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+          {{ pairing.paired_at.strftime('%b %d, %Y %I:%M %p') }}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="text-center text-muted py-4">
+          <i class="ti ti-file-off d-block fs-1 mb-2 text-muted"></i>
+          No pairings found matching the selected filters.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

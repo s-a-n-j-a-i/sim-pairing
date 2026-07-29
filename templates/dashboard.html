@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SIM Unit Linker{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Overview</div>
+      <h2 class="page-title">Dashboard</h2>
+    </div>
+    <div class="col-auto ms-auto d-print-none">
+      <div class="btn-list">
+        <a href="/pairing" class="btn btn-primary d-none d-sm-inline-block">
+          <i class="ti ti-plus me-2"></i> Create New Pairing
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Section -->
+<div class="row row-cards mt-1">
+  <div class="col-sm-6 col-lg-4">
+    <div class="card card-sm border-0 border-start border-3 border-blue">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <span class="bg-blue text-white avatar">
+              <i class="ti ti-cpu"></i>
+            </span>
+          </div>
+          <div class="col">
+            <div class="font-weight-medium text-muted">Active Units</div>
+            <div class="h1 mb-0 fw-bold">{{ stats.total_active_units }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-sm-6 col-lg-4">
+    <div class="card card-sm border-0 border-start border-3 border-green">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <span class="bg-green text-white avatar">
+              <i class="ti ti-link"></i>
+            </span>
+          </div>
+          <div class="col">
+            <div class="font-weight-medium text-muted">Active Pairings</div>
+            <div class="h1 mb-0 fw-bold">{{ stats.active_pairings_count }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-lg-4">
+    <div class="card card-sm border-0 border-start border-3 border-orange">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-auto">
+            <span class="bg-orange text-white avatar">
+              <i class="ti ti-alert-circle"></i>
+            </span>
+          </div>
+          <div class="col">
+            <div class="font-weight-medium text-muted">Pending Active Units</div>
+            <div class="h1 mb-0 fw-bold">{{ stats.pending_active_units }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visualization Row -->
+<div class="row row-cards mt-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h3 class="card-title">Pairing Progress</h3>
+        {% set total = stats.total_active_units %}
+        {% if total > 0 %}
+          {% set paired_pct = (stats.active_pairings_count / total * 100) | round(1) %}
+          {% set pending_pct = (stats.pending_active_units / total * 100) | round(1) %}
+        {% else %}
+          {% set paired_pct = 0 %}
+          {% set pending_pct = 0 %}
+        {% endif %}
+        
+        <div class="progress progress-lg mb-3">
+          <div class="progress-bar bg-green" style="width: {{ paired_pct }}%" role="progressbar" aria-valuenow="{{ paired_pct }}" aria-valuemin="0" aria-valuemax="100" title="Paired ({{ paired_pct }}%)">
+            {{ paired_pct }}%
+          </div>
+          <div class="progress-bar bg-orange" style="width: {{ pending_pct }}%" role="progressbar" aria-valuenow="{{ pending_pct }}" aria-valuemin="0" aria-valuemax="100" title="Pending ({{ pending_pct }}%)">
+            {{ pending_pct }}%
+          </div>
+        </div>
+        <div class="d-flex justify-content-between text-muted small">
+          <span><i class="ti ti-circle-filled text-green me-1"></i> Paired Active Units ({{ stats.active_pairings_count }})</span>
+          <span><i class="ti ti-circle-filled text-orange me-1"></i> Pending Active Units ({{ stats.pending_active_units }})</span>
+          <span><strong>Total Active: {{ total }}</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pairing History Table -->
+<div class="row row-cards mt-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title">Recent Pairing Logs</h3>
+        <span class="badge bg-blue-lt">{{ recent_pairings|length }} recent entries</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table table-hover">
+          <thead>
+            <tr>
+              <th>Unit ID</th>
+              <th>SIM Card Details</th>
+              <th>Provider</th>
+              <th>Paired By</th>
+              <th>Timestamp</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pairing in recent_pairings %}
+            <tr>
+              <td>
+                <span class="font-weight-semibold text-reset">{{ pairing.unit_id }}</span>
+              </td>
+              <td>
+                <div class="d-flex flex-column">
+                  <div><strong class="text-muted">MSISDN:</strong> {{ pairing.sim_card.msisdn }}</div>
+                  <div class="small text-muted"><strong class="text-muted">ICCID:</strong> {{ pairing.sim_card.iccid }}</div>
+                </div>
+              </td>
+              <td>
+                <span class="badge bg-azure-lt">{{ pairing.sim_card.provider }}</span>
+              </td>
+              <td>
+                <div class="d-flex align-items-center">
+                  <span class="avatar avatar-xs me-2 bg-blue-lt"><i class="ti ti-user"></i></span>
+                  <span>{{ pairing.paired_by.username }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="small text-muted" title="{{ pairing.paired_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+                  {{ pairing.paired_at.strftime('%b %d, %Y %I:%M %p') }}
+                </div>
+              </td>
+              <td>
+                {% if pairing.is_active %}
+                <span class="badge bg-green-lt"><i class="ti ti-check me-1"></i> Active</span>
+                {% else %}
+                <span class="badge bg-secondary-lt">Inactive</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">
+                <i class="ti ti-unlink d-block fs-1 mb-2 text-muted"></i>
+                No pairings done yet. Go to <a href="/pairing">SIM Pairing page</a> to link units and SIM cards.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

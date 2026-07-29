@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block title %}SIM Card Pairing - SIM Unit Linker{% endblock %}
+
+{% block content %}
+<!-- Tom Select CSS and JS for Searchable Dropdowns -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+
+<style>
+  /* CSS to override Tom Select default height for a more compact appearance */
+  .ts-control {
+    padding: 6px 12px !important;
+    min-height: 36px !important;
+    font-size: 0.875rem !important;
+    border-radius: 4px !important;
+  }
+  .ts-control input {
+    font-size: 0.875rem !important;
+  }
+  .ts-dropdown {
+    font-size: 0.875rem !important;
+  }
+</style>
+
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Actions</div>
+      <h2 class="page-title">SIM Card Pairing</h2>
+    </div>
+  </div>
+</div>
+
+<div class="row row-cards mt-1">
+  <!-- Selection and Form Column -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header bg-primary-lt">
+        <h3 class="card-title"><i class="ti ti-link-plus me-1 text-primary"></i> Create Unit & SIM Pairing</h3>
+      </div>
+      <div class="card-body">
+        
+        <form id="pairing-form" hx-post="/pair" hx-target="#active-pairings-container" hx-swap="outerHTML" onsubmit="return validateForm()">
+          <div class="row mb-3">
+            <!-- Unit Dropdown Select -->
+            <div class="col-md-6 mb-3">
+              <label class="form-label font-weight-bold" for="selected-unit-id"><i class="ti ti-cpu me-1 text-muted"></i>Select Active Unit ID</label>
+              <select class="form-select" name="unit_id" id="selected-unit-id" onchange="checkFormStatus()">
+                <option value="">-- Choose Active Unit --</option>
+                {% for unit in active_units %}
+                  <option value="{{ unit.id }}">{{ unit.id }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- SIM Dropdown Select -->
+            <div class="col-md-6 mb-3">
+              <label class="form-label font-weight-bold" for="selected-sim-id"><i class="ti ti-device-mobile me-1 text-muted"></i>Select SIM Card (MSISDN - ICCID)</label>
+              <select class="form-select" name="sim_card_id" id="selected-sim-id" onchange="checkFormStatus()">
+                <option value="">-- Choose SIM Card --</option>
+                {% for sim in sims %}
+                  <option value="{{ sim.id }}" data-msisdn="{{ sim.msisdn }}" data-iccid="{{ sim.iccid }}" data-provider="{{ sim.provider }}">
+                    {{ sim.msisdn }} - {{ sim.iccid }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Selected State Visualizers -->
+          <div class="row mb-4">
+            <!-- Selected Unit Display -->
+            <div class="col-md-6 mb-3 mb-md-0">
+              <div id="unit-selected-badge" class="border border-dashed border-2 rounded p-3 text-center bg-light">
+                <span class="text-muted"><i class="ti ti-cpu fs-1 d-block mb-1"></i> No Unit Selected</span>
+              </div>
+            </div>
+
+            <!-- Selected SIM Display -->
+            <div class="col-md-6">
+              <div id="sim-selected-badge" class="border border-dashed border-2 rounded p-3 text-center bg-light">
+                <span class="text-muted"><i class="ti ti-device-mobile fs-1 d-block mb-1"></i> No SIM Card Selected</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="hr-text">Operator Log</div>
+          
+          <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded mb-3 border">
+            <div>
+              <span class="text-muted"><i class="ti ti-user-check me-1"></i> Logged Operator:</span>
+              <strong class="text-primary">{{ current_user.username }}</strong>
+            </div>
+            <div>
+              <span class="badge bg-green-lt">Active Session</span>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100" id="btn-submit-pairing" disabled>
+            <i class="ti ti-link me-2"></i> Confirm and Link Pairing
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Instruction Column -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h3 class="card-title text-muted"><i class="ti ti-info-circle me-1"></i> Pairing Instructions</h3>
+        <ul class="list-unstyled space-y-2 text-muted small">
+          <li class="d-flex align-items-start mb-2">
+            <span class="badge bg-blue text-white me-2">1</span>
+            <span>Search and select an <strong>active</strong> Unit. Inactive units cannot be paired.</span>
+          </li>
+          <li class="d-flex align-items-start mb-2">
+            <span class="badge bg-blue text-white me-2">2</span>
+            <span>Search SIM card by <strong>MSISDN</strong> or <strong>ICCID</strong>. ICCID searches check the first 18 characters.</span>
+          </li>
+          <li class="d-flex align-items-start mb-2">
+            <span class="badge bg-blue text-white me-2">3</span>
+            <span>If either unit or SIM card is already paired, performing this action will <strong>deactivate</strong> the existing pairings automatically.</span>
+          </li>
+          <li class="d-flex align-items-start">
+            <span class="badge bg-blue text-white me-2">4</span>
+            <span>Click <strong>Confirm and Link</strong> to persist the pairing. The operation is logged against your account.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Active Pairings Section -->
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card" id="active-pairings-card">
+      <div class="card-header bg-dark-lt d-flex justify-content-between align-items-center">
+        <h3 class="card-title fw-bold text-dark"><i class="ti ti-checklist me-1"></i> Active Pairings</h3>
+        
+        <!-- Live Filter Input -->
+        <div class="input-icon" style="width: 250px;">
+          <span class="input-icon-addon">
+            <i class="ti ti-filter"></i>
+          </span>
+          <input type="text" 
+                 class="form-control form-control-sm" 
+                 placeholder="Filter list..."
+                 hx-get="/pairing/list"
+                 hx-trigger="keyup changed delay:300ms"
+                 hx-target="#active-pairings-container"
+                 name="filter">
+        </div>
+      </div>
+      
+      <!-- Render active pairings list snippet -->
+      {% include "partials/active_pairings.html" %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let unitSelectControl;
+  let simSelectControl;
+
+  function initTomSelects() {
+    // Safely destroy existing controls before re-initializing
+    if (unitSelectControl) {
+      unitSelectControl.destroy();
+      unitSelectControl = null;
+    }
+    if (simSelectControl) {
+      simSelectControl.destroy();
+      simSelectControl = null;
+    }
+
+    const el = document.getElementById('selected-unit-id');
+    if (el) {
+      unitSelectControl = new TomSelect("#selected-unit-id", {
+        create: false,
+        placeholder: "-- Choose Active Unit --",
+        allowEmptyOption: true,
+        onChange: function(val) {
+          updateSelectedUnitBadge(val);
+          checkFormStatus();
+        }
+      });
+    }
+
+    const simEl = document.getElementById('selected-sim-id');
+    if (simEl) {
+      simSelectControl = new TomSelect("#selected-sim-id", {
+        create: false,
+        placeholder: "-- Choose SIM Card --",
+        allowEmptyOption: true,
+        maxOptions: 50,
+        onChange: function(val) {
+          updateSelectedSimBadge(val);
+          checkFormStatus();
+        }
+      });
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function() {
+    initTomSelects();
+  });
+
+  function updateDropdownOptionsFromData() {
+    const unitsData = document.getElementById('available-units-data');
+    const simsData = document.getElementById('available-sims-data');
+    
+    if (unitsData && unitSelectControl) {
+      unitSelectControl.clearOptions();
+      const spans = unitsData.querySelectorAll('span');
+      spans.forEach(span => {
+        const id = span.getAttribute('data-id');
+        unitSelectControl.addOption({value: id, text: id});
+      });
+      unitSelectControl.refreshOptions(false);
+    }
+    
+    if (simsData && simSelectControl) {
+      simSelectControl.clearOptions();
+      const spans = simsData.querySelectorAll('span');
+      spans.forEach(span => {
+        const id = span.getAttribute('data-id');
+        const msisdn = span.getAttribute('data-msisdn');
+        const iccid = span.getAttribute('data-iccid');
+        const provider = span.getAttribute('data-provider');
+        
+        simSelectControl.addOption({
+          value: id,
+          text: `${msisdn} - ${iccid}`,
+          msisdn: msisdn,
+          iccid: iccid,
+          provider: provider
+        });
+      });
+      simSelectControl.refreshOptions(false);
+    }
+  }
+
+  function updateSelectedUnitBadge(val) {
+    const badge = document.getElementById('unit-selected-badge');
+    if (!badge) return;
+
+    if (!val) {
+      badge.className = "border border-dashed border-2 rounded p-3 text-center bg-light";
+      badge.innerHTML = `<span class="text-muted"><i class="ti ti-cpu fs-1 d-block mb-1"></i> No Unit Selected</span>`;
+      return;
+    }
+
+    badge.className = "border border-success rounded p-3 text-center bg-success-lt";
+    badge.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center">
+        <div class="text-start">
+          <span class="small text-muted d-block">Status: <span class="badge bg-blue-lt">Active</span></span>
+          <div class="fw-bold text-success fs-3">Unit ID: ${val}</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="clearUnitSelection()">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+    `;
+  }
+
+  function clearUnitSelection() {
+    if (unitSelectControl) {
+      unitSelectControl.clear();
+    }
+    checkFormStatus();
+  }
+
+  function updateSelectedSimBadge(val) {
+    const badge = document.getElementById('sim-selected-badge');
+    if (!badge) return;
+
+    if (!val) {
+      badge.className = "border border-dashed border-2 rounded p-3 text-center bg-light";
+      badge.innerHTML = `<span class="text-muted"><i class="ti ti-device-mobile fs-1 d-block mb-1"></i> No SIM Card Selected</span>`;
+      return;
+    }
+
+    // Try reading properties from Tom Select options cache first (for dynamically added ones)
+    if (simSelectControl) {
+      const option = simSelectControl.options[val];
+      if (option && option.msisdn) {
+        const msisdn = option.msisdn || '';
+        const iccid = option.iccid || '';
+        const provider = option.provider || 'Unknown';
+
+        badge.className = "border border-success rounded p-3 text-center bg-success-lt";
+        badge.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="text-start">
+              <span class="small text-muted d-block">Provider: <span class="badge bg-blue-lt">${provider}</span></span>
+              <div class="fw-bold text-success fs-3">MSISDN: ${msisdn}</div>
+              <div class="small text-muted">ICCID: ${iccid}</div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="clearSimSelection()">
+              <i class="ti ti-x"></i>
+            </button>
+          </div>
+        `;
+        return;
+      }
+    }
+
+    // Fallback: Access the data attributes from the selected option (for initial options)
+    const originalOption = document.getElementById('selected-sim-id').querySelector(`option[value="${val}"]`);
+    if (originalOption) {
+      const msisdn = originalOption.getAttribute('data-msisdn') || '';
+      const iccid = originalOption.getAttribute('data-iccid') || '';
+      const provider = originalOption.getAttribute('data-provider') || 'Unknown';
+
+      badge.className = "border border-success rounded p-3 text-center bg-success-lt";
+      badge.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="text-start">
+            <span class="small text-muted d-block">Provider: <span class="badge bg-blue-lt">${provider}</span></span>
+            <div class="fw-bold text-success fs-3">MSISDN: ${msisdn}</div>
+            <div class="small text-muted">ICCID: ${iccid}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="clearSimSelection()">
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  function clearSimSelection() {
+    if (simSelectControl) {
+      simSelectControl.clear();
+    }
+    checkFormStatus();
+  }
+
+  function checkFormStatus() {
+    const unitSelect = document.getElementById('selected-unit-id');
+    const simSelect = document.getElementById('selected-sim-id');
+    const unitId = unitSelect ? unitSelect.value : "";
+    const simId = simSelect ? simSelect.value : "";
+    const submitBtn = document.getElementById('btn-submit-pairing');
+    if (submitBtn) {
+      if (unitId && simId) {
+        submitBtn.removeAttribute('disabled');
+      } else {
+        submitBtn.setAttribute('disabled', 'true');
+      }
+    }
+  }
+
+  function validateForm() {
+    const unitSelect = document.getElementById('selected-unit-id');
+    const simSelect = document.getElementById('selected-sim-id');
+    const unitId = unitSelect ? unitSelect.value : "";
+    const simId = simSelect ? simSelect.value : "";
+    if (!unitId || !simId) {
+      alert("Please select both a Unit and a SIM card.");
+      return false;
+    }
+    return true;
+  }
+
+  // Event listener after hx-post is successfully done to reset form
+  document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt && evt.detail && evt.detail.target) {
+      const target = evt.detail.target;
+      console.log("htmx:afterSwap -> target ID:", target.id);
+      
+      if (target.id === 'active-pairings-container') {
+        updateDropdownOptionsFromData(); // Dynamically update select options without rebuilding controls
+        clearUnitSelection();
+        clearSimSelection();
+      }
+    }
+  });
+</script>
+{% endblock %}

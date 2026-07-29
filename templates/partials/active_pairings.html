@@ -1,0 +1,71 @@
+<div id="active-pairings-container">
+  <div class="table-responsive" style="min-height: 120px;">
+    <table class="table table-vcenter card-table table-hover">
+      <thead>
+        <tr>
+          <th>Unit ID</th>
+          <th>SIM Card MSISDN</th>
+          <th>SIM Card ICCID</th>
+          <th>Provider</th>
+          <th>Paired By</th>
+          <th>Paired At</th>
+          <th class="w-1">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pairing in active_pairings %}
+        <tr id="pairing-row-{{ pairing.id }}">
+          <td>
+            <span class="font-weight-semibold text-dark">{{ pairing.unit_id }}</span>
+          </td>
+          <td>{{ pairing.sim_card.msisdn }}</td>
+          <td class="font-monospace text-muted small">{{ pairing.sim_card.iccid }}</td>
+          <td>
+            <span class="badge bg-blue-lt">{{ pairing.sim_card.provider }}</span>
+          </td>
+          <td>
+            <div class="d-flex align-items-center">
+              <span class="avatar avatar-xs me-2 bg-blue-lt"><i class="ti ti-user"></i></span>
+              <span>{{ pairing.paired_by.username }}</span>
+            </div>
+          </td>
+          <td class="small text-muted" title="{{ pairing.paired_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+            {{ pairing.paired_at.strftime('%b %d, %Y %I:%M %p') }}
+          </td>
+          <td>
+            {% if current_user.is_admin or pairing.paired_by_user_id == current_user.id %}
+            <button class="btn btn-sm btn-outline-danger" 
+                    hx-post="/unpair/{{ pairing.id }}" 
+                    hx-target="#active-pairings-container" 
+                    hx-swap="outerHTML" 
+                    hx-confirm="Are you sure you want to deactivate the pairing for Unit {{ pairing.unit_id }}?">
+              <i class="ti ti-unlink me-1"></i> Unpair
+            </button>
+            {% else %}
+            <button class="btn btn-sm btn-outline-danger" disabled title="Only the administrator or the pairing creator can unpair this.">
+              <i class="ti ti-unlink me-1"></i> Unpair
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-4">
+            <i class="ti ti-unlink d-block fs-1 mb-2 text-muted"></i>
+            No active pairings found. Use the form above to link a Unit and a SIM card.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <!-- Hidden containers holding current available units and sims -->
+  <div id="available-units-data" style="display:none;">
+    {% for unit in active_units %}<span data-id="{{ unit.id }}"></span>{% endfor %}
+  </div>
+  <div id="available-sims-data" style="display:none;">
+    {% for sim in sims %}
+      <span data-id="{{ sim.id }}" data-msisdn="{{ sim.msisdn }}" data-iccid="{{ sim.iccid }}" data-provider="{{ sim.provider }}"></span>
+    {% endfor %}
+  </div>
+</div>

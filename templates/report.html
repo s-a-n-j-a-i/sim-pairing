@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Pairing Report - SIM Unit Linker{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Reports</div>
+      <h2 class="page-title">Pairing History & Audit Report</h2>
+    </div>
+    <div class="col-auto ms-auto">
+      <button class="btn btn-outline-primary" onclick="window.print()">
+        <i class="ti ti-printer me-2"></i> Print Report
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4 d-print-none">
+  <div class="card-header bg-light">
+    <h3 class="card-title fw-bold"><i class="ti ti-filter me-1 text-muted"></i> Report Filters</h3>
+  </div>
+  <div class="card-body">
+    <form id="filter-form" hx-get="/report" hx-target="#report-table-container" hx-swap="innerHTML" hx-trigger="change from:select, keyup changed delay:300ms from:input" onsubmit="return false;">
+      <div class="row g-3">
+        <!-- Provider Filter -->
+        <div class="col-md-4">
+          <label class="form-label font-weight-bold">SIM Provider</label>
+          <select class="form-select form-select-sm" name="provider_filter">
+            <option value="">All Providers</option>
+            {% for provider in providers %}
+            <option value="{{ provider }}">{{ provider }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- User Filter -->
+        <div class="col-md-4">
+          <label class="form-label font-weight-bold">Paired By Operator</label>
+          <select class="form-select form-select-sm" name="user_filter">
+            <option value="">All Operators</option>
+            {% for user in users %}
+            <option value="{{ user.id }}">{{ user.username }} {% if user.is_admin %}(Admin){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Clear Button -->
+        <div class="col-md-4 d-flex align-items-end">
+          <button type="button" class="btn btn-sm btn-outline-secondary w-100" onclick="resetFilters()">
+            <i class="ti ti-refresh me-1"></i> Reset Filters
+          </button>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1">
+        <!-- Unit ID Search -->
+        <div class="col-md-4">
+          <label class="form-label font-weight-bold">Unit ID Search</label>
+          <div class="input-icon">
+            <span class="input-icon-addon"><i class="ti ti-cpu"></i></span>
+            <input type="text" class="form-control form-control-sm" placeholder="Type Unit ID..." name="unit_filter">
+          </div>
+        </div>
+
+        <!-- MSISDN Search -->
+        <div class="col-md-4">
+          <label class="form-label font-weight-bold">SIM MSISDN Search</label>
+          <div class="input-icon">
+            <span class="input-icon-addon"><i class="ti ti-device-mobile"></i></span>
+            <input type="text" class="form-control form-control-sm" placeholder="Type MSISDN..." name="msisdn_filter">
+          </div>
+        </div>
+
+        <!-- ICCID Search -->
+        <div class="col-md-4">
+          <label class="form-label font-weight-bold">SIM ICCID Search</label>
+          <div class="input-icon">
+            <span class="input-icon-addon"><i class="ti ti-id"></i></span>
+            <input type="text" class="form-control form-control-sm" placeholder="Type ICCID..." name="iccid_filter">
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bg-dark-lt d-flex justify-content-between align-items-center">
+    <h3 class="card-title fw-bold text-dark"><i class="ti ti-table me-1"></i> Audit Results</h3>
+  </div>
+  
+  <div id="report-table-container">
+    {% include "partials/report_table.html" %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function resetFilters() {
+    const form = document.getElementById('filter-form');
+    if (form) {
+      form.reset();
+      
+      // Explicitly clear all select and inputs
+      form.querySelectorAll('select').forEach(s => s.value = '');
+      form.querySelectorAll('input').forEach(i => i.value = '');
+      
+      // Trigger HTMX reload
+      htmx.trigger(form, 'change');
+    }
+  }
+</script>
+{% endblock %}

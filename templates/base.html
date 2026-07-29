@@ -189,7 +189,7 @@
       }
 
       // Intercept HTMX events to display toasts for backend response messages
-      document.body.addEventListener('htmx:afterOnRequest', function(evt) {
+      document.body.addEventListener('htmx:afterRequest', function(evt) {
         const responseHeaders = evt.detail.xhr.getAllResponseHeaders();
         const xhr = evt.detail.xhr;
         

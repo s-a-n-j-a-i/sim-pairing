@@ -32,8 +32,8 @@ if %errorlevel% neq 0 (
 )
 
 :: Run the FastAPI application
-echo [3/3] Starting FastAPI server on http://127.0.0.1:888 ...
+echo [3/3] Starting FastAPI server on http://0.0.0.0:888 (accessible from the internet) ...
 echo.
-uvicorn main:app --reload --port 888
+uvicorn main:app --reload --host 0.0.0.0 --port 888
 
 pause

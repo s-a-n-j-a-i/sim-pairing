@@ -1,0 +1,113 @@
+<div id="units-table-container">
+  <!-- Search & Filter Controls -->
+  <div class="card-body border-bottom py-3">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <div class="input-icon">
+          <span class="input-icon-addon">
+            <i class="ti ti-search"></i>
+          </span>
+          <input type="text" 
+                 class="form-control" 
+                 name="query" 
+                 value="{{ query|default('') }}" 
+                 placeholder="Search by Unit ID..." 
+                 autocomplete="off"
+                 hx-get="/admin/units/table" 
+                 hx-trigger="keyup changed delay:300ms, search" 
+                 hx-target="#units-table-container" 
+                 hx-swap="outerHTML" 
+                 hx-include="[name='status_filter']">
+        </div>
+      </div>
+      <div class="col-auto">
+        <select class="form-select" 
+                name="status_filter" 
+                hx-get="/admin/units/table" 
+                hx-trigger="change" 
+                hx-target="#units-table-container" 
+                hx-swap="outerHTML" 
+                hx-include="[name='query']">
+          <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Units ({{ total_count }})</option>
+          <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active Only ({{ active_count }})</option>
+          <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive Only ({{ inactive_count }})</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Units Table -->
+  <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+    <table class="table table-vcenter card-table table-hover table-striped">
+      <thead class="sticky-top bg-white">
+        <tr>
+          <th>Unit ID</th>
+          <th>Status</th>
+          <th>Pairing State</th>
+          <th class="w-1 text-end">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if units %}
+          {% for u in units %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center">
+                <span class="avatar avatar-sm me-2 bg-azure-lt"><i class="ti ti-cpu"></i></span>
+                <span class="font-monospace fw-bold text-dark">{{ u.id }}</span>
+              </div>
+            </td>
+            <td>
+              {% if u.is_active %}
+                <span class="badge bg-green-lt"><i class="ti ti-check me-1"></i> Active</span>
+              {% else %}
+                <span class="badge bg-secondary-lt"><i class="ti ti-x me-1"></i> Inactive</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if pairings_map and u.id in pairings_map %}
+                {% set p = pairings_map[u.id] %}
+                <span class="badge bg-blue-lt" title="Paired at {{ p.paired_at.strftime('%Y-%m-%d %H:%M') if p.paired_at else '' }}">
+                  <i class="ti ti-link me-1"></i> Paired: {{ p.sim_card.msisdn if p.sim_card else 'SIM' }}
+                </span>
+              {% else %}
+                <span class="text-muted small">
+                  <i class="ti ti-link-off me-1"></i> Available
+                </span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <button class="btn btn-sm {% if u.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                      hx-post="/admin/units/toggle/{{ u.id }}"
+                      hx-target="#units-table-container"
+                      hx-swap="outerHTML"
+                      hx-include="[name='query'], [name='status_filter']"
+                      title="{% if u.is_active %}Deactivate this Unit{% else %}Activate this Unit{% endif %}">
+                {% if u.is_active %}
+                  <i class="ti ti-power me-1"></i> Deactivate
+                {% else %}
+                  <i class="ti ti-check me-1"></i> Activate
+                {% endif %}
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="4" class="text-center py-4 text-muted">
+              <i class="ti ti-database-off fs-1 d-block mb-2 text-secondary"></i>
+              No units found matching your search.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="card-footer d-flex align-items-center justify-content-between py-2 text-muted small">
+    <span>Showing <strong>{{ units|length }}</strong> units (of {{ total_matching }} matching)</span>
+    {% if query or status_filter != 'all' %}
+      <span class="badge bg-yellow-lt">Filter active</span>
+    {% endif %}
+  </div>
+</div>

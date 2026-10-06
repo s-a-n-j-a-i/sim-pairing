@@ -5,9 +5,6 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 import bcrypt
-from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -149,3 +146,74 @@ def init_db():
         db.rollback()
     finally:
         db.close()
+
+def add_units_from_lines(
+    db, 
+    lines_text: str, 
+    is_active: bool = True, 
+    reactivate_existing: bool = True
+) -> dict:
+    """
+    Parses a multiline string of Unit IDs, trims whitespace and quotes, deduplicates,
+    inserts new units into the database, and optionally reactivates existing inactive units.
+    Returns a dict with statistics and lists of added/existing IDs.
+    """
+    raw_lines = lines_text.splitlines() if lines_text else []
+    seen = set()
+    unique_ids = []
+    
+    for raw in raw_lines:
+        cleaned = raw.strip().strip('"\'')
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            unique_ids.append(cleaned)
+            
+    if not unique_ids:
+        return {
+            "total_lines": len(raw_lines),
+            "unique_count": 0,
+            "added_count": 0,
+            "existing_count": 0,
+            "reactivated_count": 0,
+            "added_ids": [],
+            "existing_ids": []
+        }
+        
+    # Query existing IDs in chunks of 500 to stay well under SQLite parameter limits
+    existing_ids = set()
+    chunk_size = 500
+    for i in range(0, len(unique_ids), chunk_size):
+        chunk = unique_ids[i:i + chunk_size]
+        found = db.query(Unit.id).filter(Unit.id.in_(chunk)).all()
+        for (fid,) in found:
+            existing_ids.add(fid)
+            
+    added_ids = [uid for uid in unique_ids if uid not in existing_ids]
+    existing_in_batch = [uid for uid in unique_ids if uid in existing_ids]
+    
+    # Insert new units
+    if added_ids:
+        new_units = [Unit(id=uid, is_active=is_active) for uid in added_ids]
+        db.bulk_save_objects(new_units)
+        
+    reactivated_count = 0
+    if reactivate_existing and existing_in_batch:
+        for i in range(0, len(existing_in_batch), chunk_size):
+            chunk = existing_in_batch[i:i + chunk_size]
+            updated = db.query(Unit).filter(
+                Unit.id.in_(chunk),
+                Unit.is_active == False
+            ).update({Unit.is_active: True}, synchronize_session=False)
+            reactivated_count += updated
+            
+    db.commit()
+    
+    return {
+        "total_lines": len(raw_lines),
+        "unique_count": len(unique_ids),
+        "added_count": len(added_ids),
+        "existing_count": len(existing_in_batch),
+        "reactivated_count": reactivated_count,
+        "added_ids": added_ids,
+        "existing_ids": existing_in_batch
+    }

@@ -3,14 +3,35 @@
 {% block title %}User Management - SIM Unit Linker{% endblock %}
 
 {% block content %}
-<div class="page-header d-print-none">
+<div class="page-header d-print-none mb-3">
   <div class="row align-items-center">
     <div class="col">
       <div class="page-pretitle">Administration</div>
       <h2 class="page-title">User Management</h2>
     </div>
+    <div class="col-auto ms-auto d-print-none">
+      <div class="btn-list">
+        <a href="/admin/units" class="btn btn-outline-primary">
+          <i class="ti ti-cpu me-1"></i> Unit Management
+        </a>
+      </div>
+    </div>
   </div>
 </div>
+
+<!-- Admin Sub Navigation Tabs -->
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item">
+    <a class="nav-link active" href="/admin/users">
+      <i class="ti ti-users me-1"></i> Users
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/units">
+      <i class="ti ti-cpu me-1"></i> Units
+    </a>
+  </li>
+</ul>
 
 <div class="row row-cards mt-1">
   <!-- Create User Column -->

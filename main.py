@@ -8,7 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session, joinedload
 import sqlalchemy
 
-from database import engine, get_db, init_db, User, Unit, SimCard, Pairing
+from database import engine, get_db, init_db, User, Unit, SimCard, Pairing, add_units_from_lines
 from auth import require_user, require_admin, verify_password, hash_password
 
 @asynccontextmanager
@@ -531,3 +531,223 @@ async def admin_users_password_post(
         flash_message=f"Password for user '{user.username}' updated successfully.",
         flash_type="success"
     )
+
+# ----------------- ADMIN UNIT MANAGEMENT ENDPOINTS -----------------
+
+def get_units_stats(db: Session):
+    total_units = db.query(Unit).count()
+    active_units = db.query(Unit).filter(Unit.is_active == True).count()
+    inactive_units = total_units - active_units
+    paired_units = db.query(Pairing).filter(Pairing.is_active == True).count()
+    return {
+        "total_units": total_units,
+        "active_units": active_units,
+        "inactive_units": inactive_units,
+        "paired_units": paired_units
+    }
+
+def get_units_list_data(db: Session, query: str = "", status_filter: str = "all", limit: int = 50):
+    q = db.query(Unit)
+    if query.strip():
+        q = q.filter(Unit.id.like(f"%{query.strip()}%"))
+    if status_filter == "active":
+        q = q.filter(Unit.is_active == True)
+    elif status_filter == "inactive":
+        q = q.filter(Unit.is_active == False)
+        
+    total_matching = q.count()
+    units = q.order_by(Unit.id.asc()).limit(limit).all()
+    
+    # Batch fetch active pairings for displayed units
+    unit_ids = [u.id for u in units]
+    pairings_map = {}
+    if unit_ids:
+        active_pairings = db.query(Pairing).options(
+            joinedload(Pairing.sim_card)
+        ).filter(
+            Pairing.is_active == True,
+            Pairing.unit_id.in_(unit_ids)
+        ).all()
+        pairings_map = {p.unit_id: p for p in active_pairings}
+        
+    return units, total_matching, pairings_map
+
+@app.get("/admin")
+async def admin_root_redirect(request: Request, current_user = Depends(require_admin)):
+    return RedirectResponse("/admin/units", status_code=status.HTTP_303_SEE_OTHER)
+
+@app.get("/admin/units", response_class=HTMLResponse)
+async def admin_units_get(
+    request: Request,
+    current_user = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    stats = get_units_stats(db)
+    units, total_matching, pairings_map = get_units_list_data(db, query="", status_filter="all")
+    
+    return templates.TemplateResponse(request, "admin_units.html", {
+        "current_user": current_user,
+        "active_page": "admin_units",
+        "stats": stats,
+        "units": units,
+        "total_matching": total_matching,
+        "pairings_map": pairings_map,
+        "query": "",
+        "status_filter": "all",
+        "total_count": stats["total_units"],
+        "active_count": stats["active_units"],
+        "inactive_count": stats["inactive_units"],
+        "batch_result": None
+    })
+
+@app.post("/admin/units/add", response_class=HTMLResponse)
+async def admin_units_add(
+    request: Request,
+    units_text: str = Form(""),
+    is_active: bool = Form(False),
+    reactivate_existing: bool = Form(False),
+    current_user = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    is_htmx = request.headers.get("HX-Request") == "true"
+    
+    if not units_text.strip():
+        stats = get_units_stats(db)
+        units, total_matching, pairings_map = get_units_list_data(db)
+        content = templates.TemplateResponse(request, "partials/units_content_area.html", {
+            "current_user": current_user,
+            "stats": stats,
+            "units": units,
+            "total_matching": total_matching,
+            "pairings_map": pairings_map,
+            "query": "",
+            "status_filter": "all",
+            "total_count": stats["total_units"],
+            "active_count": stats["active_units"],
+            "inactive_count": stats["inactive_units"],
+            "batch_result": None
+        }).body.decode("utf-8")
+        return HTMXResponse(content=content, flash_message="Please enter at least one Unit ID.", flash_type="error")
+
+    # Add units bulk via helper
+    result = add_units_from_lines(
+        db=db,
+        lines_text=units_text,
+        is_active=is_active,
+        reactivate_existing=reactivate_existing
+    )
+    
+    if result["unique_count"] == 0:
+        stats = get_units_stats(db)
+        units, total_matching, pairings_map = get_units_list_data(db)
+        content = templates.TemplateResponse(request, "partials/units_content_area.html", {
+            "current_user": current_user,
+            "stats": stats,
+            "units": units,
+            "total_matching": total_matching,
+            "pairings_map": pairings_map,
+            "query": "",
+            "status_filter": "all",
+            "total_count": stats["total_units"],
+            "active_count": stats["active_units"],
+            "inactive_count": stats["inactive_units"],
+            "batch_result": None
+        }).body.decode("utf-8")
+        return HTMXResponse(content=content, flash_message="No valid Unit IDs found in text.", flash_type="error")
+        
+    # Formulate message
+    if result["added_count"] > 0:
+        msg = f"Successfully added {result['added_count']} new unit(s) to the database!"
+        if result["existing_count"] > 0:
+            extra = f"{result['existing_count']} already existed"
+            if result["reactivated_count"] > 0:
+                extra += f", {result['reactivated_count']} reactivated"
+            msg += f" ({extra})"
+        flash_type = "success"
+    else:
+        msg = f"All {result['unique_count']} unit(s) already exist in database."
+        if result["reactivated_count"] > 0:
+            msg += f" ({result['reactivated_count']} reactivated)"
+        flash_type = "info"
+        
+    stats = get_units_stats(db)
+    units, total_matching, pairings_map = get_units_list_data(db)
+    
+    if not is_htmx:
+        return RedirectResponse("/admin/units", status_code=status.HTTP_303_SEE_OTHER)
+
+    content = templates.TemplateResponse(request, "partials/units_content_area.html", {
+        "current_user": current_user,
+        "stats": stats,
+        "units": units,
+        "total_matching": total_matching,
+        "pairings_map": pairings_map,
+        "query": "",
+        "status_filter": "all",
+        "total_count": stats["total_units"],
+        "active_count": stats["active_units"],
+        "inactive_count": stats["inactive_units"],
+        "batch_result": result
+    }).body.decode("utf-8")
+    
+    return HTMXResponse(content=content, flash_message=msg, flash_type=flash_type)
+
+@app.get("/admin/units/table", response_class=HTMLResponse)
+async def admin_units_table(
+    request: Request,
+    query: str = "",
+    status_filter: str = "all",
+    current_user = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    stats = get_units_stats(db)
+    units, total_matching, pairings_map = get_units_list_data(db, query=query, status_filter=status_filter)
+    
+    return templates.TemplateResponse(request, "partials/units_table.html", {
+        "current_user": current_user,
+        "units": units,
+        "total_matching": total_matching,
+        "pairings_map": pairings_map,
+        "query": query,
+        "status_filter": status_filter,
+        "total_count": stats["total_units"],
+        "active_count": stats["active_units"],
+        "inactive_count": stats["inactive_units"]
+    })
+
+@app.post("/admin/units/toggle/{unit_id}", response_class=HTMLResponse)
+async def admin_units_toggle(
+    request: Request,
+    unit_id: str,
+    query: str = Form(""),
+    status_filter: str = Form("all"),
+    current_user = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found")
+        
+    unit.is_active = not unit.is_active
+    db.commit()
+    
+    state_str = "Active" if unit.is_active else "Inactive"
+    msg = f"Unit {unit.id} is now {state_str}."
+    
+    stats = get_units_stats(db)
+    units, total_matching, pairings_map = get_units_list_data(db, query=query, status_filter=status_filter)
+    
+    content = templates.TemplateResponse(request, "partials/units_table.html", {
+        "current_user": current_user,
+        "units": units,
+        "total_matching": total_matching,
+        "pairings_map": pairings_map,
+        "query": query,
+        "status_filter": status_filter,
+        "total_count": stats["total_units"],
+        "active_count": stats["active_units"],
+        "inactive_count": stats["inactive_units"]
+    }).body.decode("utf-8")
+    
+    return HTMXResponse(content=content, flash_message=msg, flash_type="success")
+

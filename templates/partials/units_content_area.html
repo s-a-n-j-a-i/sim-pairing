@@ -1,0 +1,114 @@
+<div id="units-content-area">
+  <!-- Batch Action Result Alert (if populated by HTMX response) -->
+  {% if batch_result %}
+  <div class="alert alert-{% if batch_result.added_count > 0 or batch_result.reactivated_count > 0 %}success{% else %}info{% endif %} alert-dismissible fade show mb-3" role="alert">
+    <div class="d-flex">
+      <div>
+        <i class="ti ti-{% if batch_result.added_count > 0 %}circle-check{% else %}info-circle{% endif %} fs-2 me-2"></i>
+      </div>
+      <div>
+        <h4 class="alert-title mb-1">Batch Operation Completed</h4>
+        <div class="text-secondary">
+          Processed <strong>{{ batch_result.unique_count }}</strong> unique Unit ID(s):
+          <ul class="mb-0 mt-1">
+            <li><strong>{{ batch_result.added_count }}</strong> new unit(s) added to database.</li>
+            <li><strong>{{ batch_result.existing_count }}</strong> unit(s) already existed in database.</li>
+            {% if batch_result.reactivated_count > 0 %}
+            <li><strong>{{ batch_result.reactivated_count }}</strong> existing inactive unit(s) reactivated.</li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endif %}
+
+  <!-- Stats Cards -->
+  <div class="row row-cards mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto">
+              <span class="bg-primary text-white avatar">
+                <i class="ti ti-database"></i>
+              </span>
+            </div>
+            <div class="col">
+              <div class="font-weight-medium text-muted">Total Units</div>
+              <div class="text-dark fw-bold fs-3">{{ stats.total_units }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-6 col-md-3">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto">
+              <span class="bg-green text-white avatar">
+                <i class="ti ti-circle-check"></i>
+              </span>
+            </div>
+            <div class="col">
+              <div class="font-weight-medium text-muted">Active Units</div>
+              <div class="text-dark fw-bold fs-3">{{ stats.active_units }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto">
+              <span class="bg-secondary text-white avatar">
+                <i class="ti ti-circle-x"></i>
+              </span>
+            </div>
+            <div class="col">
+              <div class="font-weight-medium text-muted">Inactive</div>
+              <div class="text-dark fw-bold fs-3">{{ stats.inactive_units }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto">
+              <span class="bg-azure text-white avatar">
+                <i class="ti ti-link"></i>
+              </span>
+            </div>
+            <div class="col">
+              <div class="font-weight-medium text-muted">Paired</div>
+              <div class="text-dark fw-bold fs-3">{{ stats.paired_units }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Units List Card -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">
+        <i class="ti ti-list me-1 text-muted"></i> Units in Database
+      </h3>
+      <span class="badge bg-blue-lt">{{ stats.total_units }} Registered</span>
+    </div>
+    
+    {% include "partials/units_table.html" %}
+
+  </div>
+</div>

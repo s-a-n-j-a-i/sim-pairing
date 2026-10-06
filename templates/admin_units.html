@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Unit Management - SIM Unit Linker{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Administration</div>
+      <h2 class="page-title">Unit Management</h2>
+    </div>
+    <div class="col-auto ms-auto d-print-none">
+      <div class="btn-list">
+        <a href="/admin/users" class="btn btn-outline-primary">
+          <i class="ti ti-users me-1"></i> User Management
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Sub Navigation Tabs -->
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/users">
+      <i class="ti ti-users me-1"></i> Users
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active" href="/admin/units">
+      <i class="ti ti-cpu me-1"></i> Units
+    </a>
+  </li>
+</ul>
+
+<div class="row row-cards mt-1">
+  <!-- Add Units Form Column -->
+  <div class="col-lg-5 col-xl-4">
+    <div class="card">
+      <div class="card-header bg-primary-lt d-flex justify-content-between align-items-center">
+        <h3 class="card-title mb-0">
+          <i class="ti ti-cpu me-1 text-primary"></i> Add Units
+        </h3>
+        <span class="badge bg-secondary-lt" id="units-count-badge">0 units detected</span>
+      </div>
+      <div class="card-body">
+        <form id="add-units-form" 
+              hx-post="/admin/units/add" 
+              hx-target="#units-content-area" 
+              hx-swap="outerHTML" 
+              hx-indicator="#units-loading-indicator" 
+              hx-on::after-request="if(event.detail.successful) handleAfterAddUnits(event)">
+          
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label mb-0 fw-bold" for="units_text">
+                Unit IDs <span class="text-danger">*</span>
+              </label>
+              <button type="button" class="btn btn-link btn-sm text-muted p-0" onclick="clearUnitsForm()">
+                <i class="ti ti-eraser me-1"></i>Clear
+              </button>
+            </div>
+            <textarea 
+              class="form-control font-monospace" 
+              id="units_text" 
+              name="units_text" 
+              rows="12" 
+              placeholder="Enter Unit IDs line by line, e.g.:&#10;7581207439&#10;7581206340&#10;7581205877&#10;7581205892" 
+              required 
+              style="resize: vertical; font-size: 0.9rem; line-height: 1.4;"
+              oninput="updateUnitsCount(this)"
+              autocomplete="off"></textarea>
+            <div class="form-text text-muted small mt-1">
+              <i class="ti ti-info-circle me-1"></i> Enter one unit per line. Leading/trailing whitespace and quotes are automatically trimmed. Empty lines are ignored.
+            </div>
+          </div>
+
+          <div class="mb-3 bg-light p-2 rounded border">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="is_active" id="chk-is-active" value="true" checked>
+              <label class="form-check-label" for="chk-is-active">
+                Mark new units as <strong>Active</strong> (available for pairing)
+              </label>
+            </div>
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" name="reactivate_existing" id="chk-reactivate" value="true" checked>
+              <label class="form-check-label" for="chk-reactivate">
+                Reactivate existing units if currently inactive
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100" id="btn-save-units">
+            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" id="units-loading-indicator" role="status"></span>
+            <i class="ti ti-device-floppy me-1"></i> Save Units to Database
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Units Display & Stats Column -->
+  <div class="col-lg-7 col-xl-8">
+    {% include "partials/units_content_area.html" %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function updateUnitsCount(textarea) {
+    if (!textarea) return;
+    const lines = textarea.value.split('\n')
+      .map(l => l.trim().replace(/^["']|["']$/g, ''))
+      .filter(l => l.length > 0);
+    const uniqueCount = new Set(lines).size;
+    const badge = document.getElementById('units-count-badge');
+    if (badge) {
+      if (lines.length === 0) {
+        badge.textContent = '0 units detected';
+        badge.className = 'badge bg-secondary-lt';
+      } else if (lines.length === uniqueCount) {
+        badge.textContent = `${lines.length} unit${lines.length === 1 ? '' : 's'} detected`;
+        badge.className = 'badge bg-blue-lt';
+      } else {
+        badge.textContent = `${lines.length} lines (${uniqueCount} unique units)`;
+        badge.className = 'badge bg-azure-lt';
+      }
+    }
+  }
+
+  function clearUnitsForm() {
+    const ta = document.getElementById('units_text');
+    if (ta) {
+      ta.value = '';
+      updateUnitsCount(ta);
+      ta.focus();
+    }
+  }
+
+  function handleAfterAddUnits(event) {
+    const ta = document.getElementById('units_text');
+    if (ta) {
+      ta.value = '';
+      updateUnitsCount(ta);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function() {
+    const ta = document.getElementById('units_text');
+    if (ta) {
+      updateUnitsCount(ta);
+    }
+  });
+</script>
+{% endblock %}

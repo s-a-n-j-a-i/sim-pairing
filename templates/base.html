@@ -114,12 +114,20 @@
                   </a>
                 </li>
                 {% if current_user and current_user.is_admin %}
-                <li class="nav-item {% if active_page == 'admin' %}active{% endif %}">
+                <li class="nav-item {% if active_page in ['admin', 'admin_users'] %}active{% endif %}">
                   <a class="nav-link" href="/admin/users">
                     <span class="nav-link-icon d-md-none d-lg-inline-block">
                       <i class="ti ti-users-group"></i>
                     </span>
-                    <span class="nav-link-title">User Management</span>
+                    <span class="nav-link-title">Users</span>
+                  </a>
+                </li>
+                <li class="nav-item {% if active_page == 'admin_units' %}active{% endif %}">
+                  <a class="nav-link" href="/admin/units">
+                    <span class="nav-link-icon d-md-none d-lg-inline-block">
+                      <i class="ti ti-cpu"></i>
+                    </span>
+                    <span class="nav-link-title">Unit Management</span>
                   </a>
                 </li>
                 {% endif %}
